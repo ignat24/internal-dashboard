@@ -22,6 +22,9 @@ jobs:
       - name: Lint Helm chart
         run: helm lint ./charts/internal-dashboard
 
+      - name: Render Helm templates
+        run: helm template dashboard ./charts/internal-dashboard -n dashboard
+
       - name: Install k3d
         run: |
           curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash

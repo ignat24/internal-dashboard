@@ -1,65 +1,47 @@
-# Internal Dashboard — Troubleshooting Report
+# Internal Dashboard
 
-## TASK-2 — API
+Застосунок складається з API (Flask / Gunicorn), Web (Caddy) та Redis. Розгортання виконується через Helm, зовнішній доступ — через Traefik Ingress.
 
-[Pull Request #2](https://github.com/ignat24/internal-dashboard/pull/2)
+## Вимоги
 
-| Симптом | Причина | Fix |
-|---|---|---|
-| `ImagePullBackOff` | Спроба завантажити локальний образ із registry | `imagePullPolicy: IfNotPresent` |
-| `CreateContainerConfigError` | Некоректний ключ Secret | `redis-uri` → `redis-url` |
-| Gunicorn не запускається | Недоступний для запису `/tmp` | Додано `emptyDir` для `/tmp` |
-| Невідповідність портів API | Gunicorn слухає `8000`, probes очікують `8080` | Змінено порт Gunicorn на `8080` |
-| `OOMKilled` | Недостатній memory limit (`16Mi`) | Request `64Mi`, limit `128Mi` |
-| `KeyError: APP_ENV` | Використано `APP_MODE` замість `APP_ENV` | Виправлено конфігурацію `APP_ENV` |
-| Gunicorn не знаходить application | Некоректне посилання на Flask application | `main:application` → `main:app` |
-| Рестарти API при недоступності Redis | Переплутано liveness та readiness endpoints | Liveness: `/api/health`, readiness: `/api/ready` |
-| Redis недоступний | Некоректний порт у NetworkPolicy | Встановлено порт `6379` |
+`docker`, `kubectl`, `helm`, `k3d`.
 
-## TASK-3 — Web та Ingress
+## Локальне розгортання
 
-[Pull Request #3](https://github.com/ignat24/internal-dashboard/pull/3)
+```bash
+k3d cluster create dashboard --port "80:80@loadbalancer" --port "443:443@loadbalancer"
+docker build -t internal-dashboard-api:local .
+docker build -t internal-dashboard-frontend:local ./frontend
+k3d image import internal-dashboard-api:local -c dashboard
+k3d image import internal-dashboard-frontend:local -c dashboard
+helm upgrade --install dashboard ./charts/internal-dashboard \
+  -n dashboard --create-namespace --wait --timeout 5m
+```
 
-| Симптом | Причина | Fix |
-|---|---|---|
-| Некоректна маршрутизація API Service | `targetPort` не відповідає порту Gunicorn | `8000` → `8080` |
-| HTTP 503 | Service selector не відповідає labels API pod | `backend` → `api` |
-| `ImagePullBackOff` frontend | Спроба завантажити локальний образ із registry | `imagePullPolicy: IfNotPresent` |
-| HTTP 404 для API | Traefik видаляє префікс `/api` | `stripApiPrefix: false` |
-| HTTP 502 для Web | Service направляє трафік на `8080`, Caddy слухає `80` | `targetPort: 80` |
-| HTTP 404 для Web | Caddy використовує неправильний document root | `/srv/www/build` → `/srv/www/dist` |
+Додати до `/etc/hosts`:
 
-## TASK-4 — Продуктивність та CI
+```text
+127.0.0.1 dashboard.local
+```
 
-[Pull Request #4](https://github.com/ignat24/internal-dashboard/pull/4)
+## Перевірка
 
-### Smoke tests
+```bash
+sleep 180
+kubectl get pods,svc,ingress,endpoints,networkpolicy -n dashboard
+curl -i http://dashboard.local/
+curl -i http://dashboard.local/api/
+curl -i http://dashboard.local/api/health
+helm test dashboard -n dashboard --logs
+kubectl get pods -n dashboard
+```
 
-| Симптом | Причина | Fix |
-|---|---|---|
-| Smoke tests не проходили через timeout під час паралельних запитів | Один синхронний Gunicorn worker обробляв запити послідовно | Налаштовано `gthread`: 1 worker, 4 threads |
+Очікуваний результат: усі три URL повертають HTTP 200, API повертає `{"message":"Hello","env":"prod","cache":"ok"}`, health endpoint — `{"status":"OK"}`. Сервісні Pod готові, без рестартів; smoke tests успішні.
 
-### CI
+## CI
 
-Раніше CI перевіряв лише збірку Docker-образів. Додано:
+На push виконуються збірка образів, `helm lint`, `helm template`, створення k3d-кластера, імпорт образів, розгортання та smoke tests.
 
-- Збірку та тегування API і frontend образів із `--load`.
-- Перевірку Helm chart (`helm lint`).
-- Створення k3d-кластера та імпорт Docker-образів.
-- Розгортання застосунку через Helm та запуск smoke tests (`helm test`).
-- Збір діагностики при помилках і видалення тестового кластера.
+## Звіт
 
-## Результати локального тестування
-
-- API, Web та Redis — `Running`, без рестартів після повторного розгортання.
-- `/`, `/api/`, `/api/health` — HTTP 200; Redis cache — `ok`.
-- `helm test` — `Succeeded`: 40 запитів, 20 паралельно, за 2 с (ліміт 4 с).
-- Умови тестування, механізми безпеки та ресурсні обмеження збережено; вихідний код застосунку не змінено.
-
-### Розгортання та стан ресурсів
-
-![Deployment and Kubernetes resources](docs/screenshots/deployment.png)
-
-### Перевірка endpoints та smoke test
-
-![HTTP responses and successful smoke test](docs/screenshots/smoke-tests.png)
+[REPORT.md](REPORT.md) — опис проблем, виправлень та результатів локального тестування.
