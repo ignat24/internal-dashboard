@@ -9,7 +9,7 @@ api:
     pullPolicy: IfNotPresent
   service:
     port: 8000
-    targetPort: 8000
+    targetPort: 8080
   containerPort: 8080
   resources:
     requests:
@@ -43,12 +43,12 @@ web:
   frontend:
     repository: internal-dashboard-frontend
     tag: local
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   service:
     port: 80
-    targetPort: 8080
+    targetPort: 80
   containerPort: 80
-  caddyRoot: /srv/www/build
+  caddyRoot: /srv/www/dist
 
 redis:
   replicaCount: 1
@@ -62,7 +62,7 @@ ingress:
   enabled: true
   className: traefik
   host: dashboard.local
-  stripApiPrefix: true
+  stripApiPrefix: false
 
 networkPolicy:
   enabled: true
