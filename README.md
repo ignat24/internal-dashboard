@@ -33,13 +33,21 @@
 
 [Pull Request #4](https://github.com/ignat24/internal-dashboard/pull/4)
 
+### Smoke tests
+
 | Симптом | Причина | Fix |
 |---|---|---|
-| Timeout під час concurrency test | Один синхронний Gunicorn worker | 1 worker, 4 threads (`gthread`) |
-| CI не виявляє помилки розгортання та виконання | Перевіряється лише збірка Docker-образів | Додано `helm lint`, k3d, імпорт образів, Helm deployment та `helm test` |
-| `ImagePullBackOff` frontend у CI | Тег образу не відповідає Helm chart | Використано `internal-dashboard-frontend:local` для збірки та імпорту |
+| Smoke tests не проходили через timeout під час паралельних запитів | Один синхронний Gunicorn worker обробляв запити послідовно | Налаштовано `gthread`: 1 worker, 4 threads |
 
-У CI також додано збір діагностики при помилках та видалення тестового кластера.
+### CI
+
+Раніше CI перевіряв лише збірку Docker-образів. Додано:
+
+- Збірку та тегування API і frontend образів із `--load`.
+- Перевірку Helm chart (`helm lint`).
+- Створення k3d-кластера та імпорт Docker-образів.
+- Розгортання застосунку через Helm та запуск smoke tests (`helm test`).
+- Збір діагностики при помилках і видалення тестового кластера.
 
 ## Результати локального тестування
 
