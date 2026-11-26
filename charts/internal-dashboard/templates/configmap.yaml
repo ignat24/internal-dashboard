@@ -5,7 +5,7 @@ metadata:
   labels:
     {{- include "internal-dashboard.labels" . | nindent 4 }}
 data:
-  APP_MODE: prod
+  APP_ENV: prod
 ---
 apiVersion: v1
 kind: ConfigMap
