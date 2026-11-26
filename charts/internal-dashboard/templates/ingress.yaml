@@ -1,0 +1,43 @@
+{{- if .Values.ingress.enabled }}
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: strip-api
+  labels:
+    {{- include "internal-dashboard.labels" . | nindent 4 }}
+spec:
+  stripPrefix:
+    prefixes:
+      - /api
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "internal-dashboard.fullname" . }}
+  labels:
+    {{- include "internal-dashboard.labels" . | nindent 4 }}
+  annotations:
+    {{- if .Values.ingress.stripApiPrefix }}
+    traefik.ingress.kubernetes.io/router.middlewares: {{ .Release.Namespace }}-strip-api@kubernetescrd
+    {{- end }}
+spec:
+  ingressClassName: {{ .Values.ingress.className }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "internal-dashboard.fullname" . }}-api
+                port:
+                  number: {{ .Values.api.service.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "internal-dashboard.fullname" . }}-web
+                port:
+                  number: {{ .Values.web.service.port }}
+{{- end }}

@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "internal-dashboard.fullname" . }}-web
+  labels:
+    {{- include "internal-dashboard.labels" . | nindent 4 }}
+    app.kubernetes.io/component: web
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "internal-dashboard.web.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "internal-dashboard.web.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: frontend-build
+          image: "{{ .Values.web.frontend.repository }}:{{ .Values.web.frontend.tag }}"
+          imagePullPolicy: {{ .Values.web.frontend.pullPolicy }}
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          volumeMounts:
+            - name: static
+              mountPath: /out
+      containers:
+        - name: caddy
+          image: "{{ .Values.web.image.repository }}:{{ .Values.web.image.tag }}"
+          imagePullPolicy: {{ .Values.web.image.pullPolicy }}
+          resources:
+            requests:
+              cpu: 20m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.containerPort }}
+              protocol: TCP
+          volumeMounts:
+            - name: static
+              mountPath: /srv/www
+            - name: caddy-config
+              mountPath: /etc/caddy/Caddyfile
+              subPath: Caddyfile
+      volumes:
+        - name: static
+          emptyDir: {}
+        - name: caddy-config
+          configMap:
+            name: {{ include "internal-dashboard.fullname" . }}-web

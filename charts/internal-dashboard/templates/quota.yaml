@@ -1,0 +1,34 @@
+{{- if .Values.quota.enabled }}
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: {{ include "internal-dashboard.fullname" . }}
+  labels:
+    {{- include "internal-dashboard.labels" . | nindent 4 }}
+spec:
+  limits:
+    - type: Container
+      max:
+        cpu: 500m
+        memory: 160Mi
+      min:
+        memory: 8Mi
+      default:
+        cpu: 100m
+        memory: 64Mi
+      defaultRequest:
+        cpu: 25m
+        memory: 32Mi
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ include "internal-dashboard.fullname" . }}
+  labels:
+    {{- include "internal-dashboard.labels" . | nindent 4 }}
+spec:
+  hard:
+    limits.cpu: "2"
+    limits.memory: 640Mi
+    requests.memory: 384Mi
+{{- end }}
