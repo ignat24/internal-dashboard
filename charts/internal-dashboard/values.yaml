@@ -6,7 +6,7 @@ api:
   image:
     repository: internal-dashboard-api
     tag: local
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
   service:
     port: 8000
     targetPort: 8000
@@ -14,20 +14,20 @@ api:
   resources:
     requests:
       cpu: 50m
-      memory: 8Mi
+      memory: 64Mi
     limits:
       cpu: 200m
-      memory: 16Mi
+      memory: 128Mi
   probes:
     liveness:
-      path: /api/ready
+      path: /api/health
       port: 8080
       initialDelaySeconds: 5
       periodSeconds: 3
       timeoutSeconds: 1
       failureThreshold: 2
     readiness:
-      path: /api/health
+      path: /api/ready
       port: 8080
       initialDelaySeconds: 3
       periodSeconds: 3
@@ -67,7 +67,7 @@ ingress:
 networkPolicy:
   enabled: true
   apiIngressPort: 8080
-  redisIngressPort: 6380
+  redisIngressPort: 6379
   traefikNamespace: kube-system
 
 quota:
