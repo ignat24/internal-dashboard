@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build app image
+        run: docker buildx build --load -t internal-dashboard-api:local .
+
+      - name: Build frontend image
+        run: docker buildx build --load -t internal-dashboard-web:local ./frontend
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint Helm chart
+        run: helm lint ./charts/internal-dashboard
+
+      - name: Install k3d
+        run: |
+          curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Create Kubernetes cluster
+        run: k3d cluster create dashboard
+
+      - name: Import Docker images
+        run: |
+          k3d image import internal-dashboard-api:local \
+            internal-dashboard-web:local -c dashboard
+
+      - name: Deploy application
+        run: |
+          helm upgrade --install dashboard ./charts/internal-dashboard \
+            -n dashboard \
+            --create-namespace \
+            --wait \
+            --timeout 5m
+
+      - name: Run smoke tests
+        run: helm test dashboard -n dashboard --logs
+
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods -n dashboard -o wide
+          kubectl get events -n dashboard --sort-by=.lastTimestamp
+          kubectl logs deployment/dashboard-internal-dashboard-api \
+            -n dashboard --all-containers=true
+
+      - name: Cleanup
+        if: always()
+        run: k3d cluster delete dashboard
