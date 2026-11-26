@@ -32,7 +32,7 @@ jobs:
       - name: Import Docker images
         run: |
           k3d image import internal-dashboard-api:local \
-            internal-dashboard-web:local -c dashboard
+            internal-dashboard-frontend:local -c dashboard
 
       - name: Deploy application
         run: |
